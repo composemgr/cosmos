@@ -45,8 +45,8 @@ See `docker-compose.yaml` for complete list of configurable options.
 
 ## 📂 Volumes
 
-- `./rootfs/config/cosmos` - Data storage
-- `./rootfs/data/cosmos` - Data storage
+- `./volumes/config/cosmos` - Data storage
+- `./volumes/data/cosmos` - Data storage
 
 ## 🔍 Logging
 
