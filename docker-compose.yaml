@@ -19,8 +19,8 @@ services:
     environment:
       TZ: ${TZ:-America/New_York}
     volumes:
-      - ./rootfs/config/cosmos:/config
-      - ./rootfs/data/cosmos:/data
+      - ./volumes/config/cosmos:/config
+      - ./volumes/data/cosmos:/data
 
 networks:
   cosmos:
