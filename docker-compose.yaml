@@ -17,6 +17,8 @@ services:
     logging: *default-logging
     networks:
       - cosmos
+      - proxy
+      - cloudflare
     ports:
       - "172.17.0.1:8105:80"
       - "172.17.0.1:8106:443"
@@ -24,6 +26,8 @@ services:
       TZ: ${TZ:-America/New_York}
       COSMOS_HOSTNAME: ${BASE_HOST_NAME:-localhost}
       MONGO_URL: mongodb://${DB_ADMIN_NAME:-cosmos}:${DB_ADMIN_PASS:-changeme_admin_password}@cosmos-db:27017
+      CONTAINER_NAME: cosmos-app
+      HOSTNAME: ${BASE_HOST_NAME:-$HOSTNAME}
     volumes:
       - ./volumes/config/cosmos:/config
       - ./volumes/data/cosmos:/data
@@ -31,6 +35,22 @@ services:
     depends_on:
       cosmos-db:
         condition: service_healthy
+    labels:
+      - 'traefik.enable=true'
+      - 'cloudflare.enable=true'
+      - 'traefik.docker.network=proxy'
+      - 'cloudflare.service=http://cosmos-app:80'
+      - 'cloudflare.hostname=cosmos.${CLOUDFLARE_ZONE_NAME:-}'
+      - 'traefik.http.routers.cosmos-app.entrypoints=http'
+      - 'traefik.http.routers.cosmos-app-secure.tls=true'
+      - 'traefik.http.routers.cosmos-app.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
+      - 'traefik.http.middlewares.cosmos-app-https-redirect.redirectscheme.scheme=https'
+      - 'traefik.http.routers.cosmos-app.middlewares=cosmos-app-https-redirect'
+      - 'traefik.http.routers.cosmos-app-secure.entrypoints=https'
+      - 'traefik.http.routers.cosmos-app-secure.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
+      - 'traefik.http.routers.cosmos-app-secure.tls.certresolver=cloudflare'
+      - 'traefik.http.routers.cosmos-app-secure.service=cosmos-app'
+      - 'traefik.http.services.cosmos-app.loadbalancer.server.port=80'
 
   cosmos-db:
     image: mongo:latest
@@ -45,6 +65,7 @@ services:
       TZ: ${TZ:-America/New_York}
       MONGO_INITDB_ROOT_USERNAME: ${DB_ADMIN_NAME:-cosmos}
       MONGO_INITDB_ROOT_PASSWORD: ${DB_ADMIN_PASS:-changeme_admin_password}
+      CONTAINER_NAME: cosmos-db
     volumes:
       - ./volumes/data/db/mongodb/cosmos:/data/db
     healthcheck:
@@ -58,3 +79,7 @@ networks:
   cosmos:
     name: cosmos
     external: false
+  proxy:
+    external: true
+  cloudflare:
+    external: true
