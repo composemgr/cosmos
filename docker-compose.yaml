@@ -1,5 +1,6 @@
 # nginx proxy address - http://172.17.0.1:8105
 
+name: cosmos
 x-logging: &default-logging
   driver: json-file
   options:
@@ -7,21 +8,53 @@ x-logging: &default-logging
     max-file: "1"
 
 services:
-  cosmos:
+  app:
     image: azukaar/cosmos-server:latest
+    pull_policy: always
     container_name: cosmos-app
-    restart: unless-stopped
+    hostname: ${BASE_HOST_NAME:-$HOSTNAME}
+    restart: always
     logging: *default-logging
     networks:
       - cosmos
     ports:
-      - "8105:80"
+      - "172.17.0.1:8105:80"
+      - "172.17.0.1:8106:443"
     environment:
       TZ: ${TZ:-America/New_York}
+      COSMOS_HOSTNAME: ${BASE_HOST_NAME:-localhost}
+      MONGO_URL: mongodb://${DB_ADMIN_NAME:-cosmos}:${DB_ADMIN_PASS:-changeme_admin_password}@cosmos-db:27017
     volumes:
       - ./volumes/config/cosmos:/config
       - ./volumes/data/cosmos:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      cosmos-db:
+        condition: service_healthy
+
+  cosmos-db:
+    image: mongo:latest
+    container_name: cosmos-db
+    hostname: cosmos-db
+    restart: always
+    pull_policy: always
+    logging: *default-logging
+    networks:
+      - cosmos
+    environment:
+      TZ: ${TZ:-America/New_York}
+      MONGO_INITDB_ROOT_USERNAME: ${DB_ADMIN_NAME:-cosmos}
+      MONGO_INITDB_ROOT_PASSWORD: ${DB_ADMIN_PASS:-changeme_admin_password}
+    volumes:
+      - ./volumes/data/db/mongodb/cosmos:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand(\"ping\").ok' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
 
 networks:
   cosmos:
+    name: cosmos
     external: false
